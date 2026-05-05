@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "Member": {
+      "title": "Member",
+      "description": "A person who participates in chit funds.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the member" },
+        "email": { "type": "string", "format": "email", "description": "Email address" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the member was added" }
+      },
+      "required": ["name", "email", "createdAt"]
+    },
+    "Group": {
+      "title": "Chit Group",
+      "description": "A group of members participating in a chit fund cycle.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "totalChitValue": { "type": "number", "description": "The total pot amount (e.g., 100,000)" },
+        "totalMonths": { "type": "number", "description": "Duration of the chit in months" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "completed"] },
+        "totalSlots": { "type": "number", "description": "Total number of slots available in this group" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "totalChitValue", "totalMonths", "startDate", "status", "totalSlots", "createdAt"]
+    },
+    "GroupMember": {
+      "title": "Group Member Mapping",
+      "description": "Links members to groups and specifies how many slots they hold.",
+      "type": "object",
+      "properties": {
+        "memberId": { "type": "string" },
+        "groupId": { "type": "string" },
+        "slots": { "type": "number", "description": "Number of chits held by this member in this group" },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["memberId", "groupId", "slots", "joinedAt"]
+    },
+    "Auction": {
+      "title": "Monthly Auction",
+      "description": "Record of a monthly auction for a specific group.",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string" },
+        "monthNumber": { "type": "number" },
+        "winningBid": { "type": "number", "description": "The amount the winner agreed to lose/discount" },
+        "winnerMemberId": { "type": "string", "description": "ID of the member who won the auction" },
+        "dividendPerSlot": { "type": "number", "description": "Amount distributed back to each slot (winningBid / totalSlots)" },
+        "auctionDate": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["groupId", "monthNumber", "winningBid", "winnerMemberId", "dividendPerSlot", "auctionDate", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/members/{memberId}": {
+      "schema": "Member",
+      "description": "Global list of all members."
+    },
+    "/groups/{groupId}": {
+      "schema": "Group",
+      "description": "List of all chit groups."
+    },
+    "/groupMembers/{mappingId}": {
+      "schema": "GroupMember",
+      "description": "Mapping of members to groups."
+    },
+    "/auctions/{auctionId}": {
+      "schema": "Auction",
+      "description": "History of all auctions."
+    }
+  }
+}

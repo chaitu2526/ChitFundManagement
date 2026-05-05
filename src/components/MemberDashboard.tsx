@@ -1,0 +1,171 @@
+import React, { useState, useEffect } from 'react';
+import { chitService } from '../services/chitService';
+import { Member, Group, GroupMember, Auction } from '../types';
+import { Wallet, Calendar, AlertCircle } from 'lucide-react';
+
+interface MemberDashboardProps {
+  members: Member[];
+  groups: Group[];
+}
+
+export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, groups }) => {
+  const [selectedMemberId, setSelectedMemberId] = useState<string>('');
+  const [memberships, setMemberships] = useState<GroupMember[]>([]);
+  const [allAuctions, setAllAuctions] = useState<Record<string, Auction[]>>({});
+
+  useEffect(() => {
+    if (selectedMemberId) {
+      const unsub = chitService.getMembershipsForMember(selectedMemberId, (mships) => {
+        setMemberships(mships);
+        // For each group the member is in, fetch auctions to calculate dues
+        mships.forEach(mship => {
+          chitService.getAuctions(mship.groupId, (auctions) => {
+            setAllAuctions(prev => ({ ...prev, [mship.groupId]: auctions }));
+          });
+        });
+      });
+      return () => unsub();
+    }
+  }, [selectedMemberId]);
+
+  const selectedMember = members.find(m => m.id === selectedMemberId);
+
+  return (
+    <div className="space-y-8 pb-20">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-blue-600/10 border border-blue-500/20 p-8 rounded-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/5 rounded-full -mr-32 -mt-32"></div>
+        <div className="relative z-10 space-y-1">
+          <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
+            <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
+              <Wallet size={24} />
+            </div>
+            <span>Financier Dashboard</span>
+          </h2>
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Track installments and historical dividends</p>
+        </div>
+        
+        <div className="relative z-10 w-full md:w-auto">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-2">Identify Stakeholder</p>
+          <select 
+            className="w-full md:min-w-[250px] bg-[#161b22] border border-white/10 rounded-xl px-4 py-3 text-sm font-bold tracking-wide text-white outline-none focus:border-blue-500/50 transition-all appearance-none cursor-pointer"
+            value={selectedMemberId}
+            onChange={e => setSelectedMemberId(e.target.value)}
+          >
+            <option value="" className="bg-[#161b22] text-zinc-400">-- Choose Member Entity --</option>
+            {members.map(m => (
+              <option key={m.id} value={m.id} className="bg-[#161b22] text-white">
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </header>
+
+      {selectedMember ? (
+        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Aggregate Total Banner */}
+          <div className="glass-panel p-10 flex flex-col md:flex-row justify-between items-center gap-8 shadow-2xl shadow-blue-500/10 border-blue-500/20 bg-blue-500/[0.03]">
+            <div className="text-center md:text-left space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-blue-400">Consolidated Net Due (Current Period)</h3>
+              <div className="flex items-baseline gap-2 justify-center md:justify-start">
+                <span className="text-xl font-bold text-zinc-500">₹</span>
+                <p className="text-6xl font-black text-white tracking-tighter">
+                  {memberships.reduce((acc, mship) => {
+                    const group = groups.find(g => g.id === mship.groupId);
+                    if (!group) return acc;
+                    const auctions = allAuctions[group.id] || [];
+                    const latestAuction = auctions.slice().sort((a,b) => b.monthNumber - a.monthNumber)[0];
+                    const currentDividend = latestAuction?.dividendPerSlot || 0;
+                    const baseInstallment = group.totalChitValue / group.totalSlots;
+                    const duePerSlot = baseInstallment - currentDividend;
+                    return acc + (duePerSlot * mship.slots);
+                  }, 0).toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <div className="text-center md:text-right p-6 bg-white/5 rounded-2xl border border-white/10 min-w-[180px]">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Holding Units</p>
+              <p className="text-3xl font-bold text-blue-400">{memberships.reduce((acc, m) => acc + m.slots, 0)} <span className="text-sm text-zinc-600">SLOTS</span></p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {memberships.map(mship => {
+              const group = groups.find(g => g.id === mship.groupId);
+              if (!group) return null;
+              
+              const auctions = allAuctions[group.id] || [];
+              const latestAuction = auctions.sort((a,b) => b.monthNumber - a.monthNumber)[0];
+              const monthToPay = (auctions.length + 1) <= group.totalMonths ? (auctions.length + 1) : group.totalMonths;
+              const baseInstallment = group.totalChitValue / group.totalSlots;
+              const currentDividend = latestAuction?.dividendPerSlot || 0;
+              const duePerSlot = baseInstallment - currentDividend;
+              const totalDue = duePerSlot * mship.slots;
+
+              return (
+                <div key={mship.id} className="glass-panel p-8 relative overflow-hidden group hover:border-blue-500/30 hover:bg-blue-600/[0.02] transition-all hover:shadow-2xl hover:shadow-blue-500/5 active:scale-[0.99]">
+                  <div className="absolute top-0 right-0 px-4 py-2 bg-blue-600/10 text-blue-400 text-[10px] font-black uppercase tracking-widest rounded-bl-xl border-l border-b border-blue-500/20">
+                    {mship.slots} {mship.slots > 1 ? 'UNITS' : 'UNIT'}
+                  </div>
+                  
+                  <div className="space-y-1 mb-8">
+                    <h3 className="text-xl font-bold text-white tracking-tight pr-16">{group.name}</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Asset Cluster Info</p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center py-2 border-b border-white/5">
+                      <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Base Installment</span>
+                      <span className="text-sm font-semibold text-zinc-300">₹{(baseInstallment * mship.slots).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-white/5">
+                      <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Period Dividend</span>
+                      <span className="text-sm font-bold text-emerald-500">- ₹{(currentDividend * mship.slots).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-4">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Net Due</span>
+                        <p className="text-[9px] text-zinc-600 font-bold uppercase uppercase">Cycle {monthToPay} of {group.totalMonths}</p>
+                      </div>
+                      <span className="text-2xl font-black text-white tracking-tighter">₹{totalDue.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                      <Calendar size={12} className="text-blue-500" />
+                      <span>{group.startDate.toDate().toLocaleDateString('en-IN', { month: 'short', year: 'numeric', day: 'numeric' })}</span>
+                    </div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {memberships.length === 0 && (
+            <div className="glass-panel p-20 text-center flex flex-col items-center gap-6 border-dashed border-white/10 opacity-60">
+              <div className="p-4 bg-white/5 rounded-full">
+                <AlertCircle size={32} className="text-zinc-600" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-lg font-bold text-zinc-300">No Active Enrollments</p>
+                <p className="text-xs text-zinc-600 uppercase font-black tracking-widest">This identity is not registered in any financial clusters.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="h-96 glass-panel border-dashed p-12 flex flex-col items-center justify-center gap-6 text-zinc-600 text-center animate-in fade-in duration-700">
+          <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center border border-white/5 border-dashed">
+            <Wallet size={32} className="opacity-20" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold text-zinc-300">Identity Verification Required</h3>
+            <p className="max-w-[300px] text-sm text-zinc-500 font-medium">Please select a registered stakeholder from the selection matrix above to view consolidated financial data.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

@@ -1,0 +1,106 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'chaitu2513@gmail.com' &&
+        request.auth.token.email_verified == true
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Schema Validations
+    function isValidMember(data) {
+      return data.keys().hasAll(['name', 'email', 'createdAt']) &&
+             data.keys().size() == 4 && // name, email, createdAt, phone (optional but in my blueprint it was 4 properties)
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 100 &&
+             data.createdAt == request.time;
+    }
+
+    function isValidGroup(data) {
+      return data.keys().hasAll(['name', 'totalChitValue', 'totalMonths', 'startDate', 'status', 'totalSlots', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 &&
+             data.totalChitValue is number && data.totalChitValue > 0 &&
+             data.totalMonths is int && data.totalMonths > 0 &&
+             data.totalSlots is int && data.totalSlots > 0 &&
+             data.status in ['active', 'completed'] &&
+             data.createdAt == request.time;
+    }
+
+    function isValidGroupMember(data) {
+      return data.keys().hasAll(['memberId', 'groupId', 'slots', 'joinedAt']) &&
+             isValidId(data.memberId) &&
+             isValidId(data.groupId) &&
+             data.slots is int && data.slots > 0 &&
+             data.joinedAt == request.time;
+    }
+
+    function isValidAuction(data) {
+      return data.keys().hasAll(['groupId', 'monthNumber', 'winningBid', 'winnerMemberId', 'dividendPerSlot', 'auctionDate', 'createdAt']) &&
+             isValidId(data.groupId) &&
+             isValidId(data.winnerMemberId) &&
+             data.monthNumber is int && data.monthNumber > 0 &&
+             data.winningBid is number && data.winningBid >= 0 &&
+             data.dividendPerSlot is number &&
+             data.createdAt == request.time;
+    }
+
+    // Rules
+    match /members/{memberId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidMember(incoming());
+      allow update: if isAdmin() && isValidMember(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'phone']);
+      allow delete: if isAdmin();
+    }
+
+    match /groups/{groupId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidGroup(incoming());
+      allow update: if isAdmin() && isValidGroup(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'status']);
+      allow delete: if isAdmin();
+    }
+
+    match /groupMembers/{mappingId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidGroupMember(incoming()) &&
+                    exists(/databases/$(database)/documents/members/$(incoming().memberId)) &&
+                    exists(/databases/$(database)/documents/groups/$(incoming().groupId));
+      allow update: if isAdmin() && isValidGroupMember(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['slots']);
+      allow delete: if isAdmin();
+    }
+
+    match /auctions/{auctionId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidAuction(incoming()) &&
+                    exists(/databases/$(database)/documents/groups/$(incoming().groupId)) &&
+                    exists(/databases/$(database)/documents/members/$(incoming().winnerMemberId));
+      allow update: if false; // Auctions are immutable history
+      allow delete: if isAdmin();
+    }
+  }
+}
