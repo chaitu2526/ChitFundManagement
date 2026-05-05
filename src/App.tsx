@@ -65,12 +65,17 @@ export default function App() {
             <h1 className="text-4xl font-bold tracking-tight text-white">
               ChitManager
             </h1>
-            <p className="text-sm tracking-wide text-blue-400/80 font-medium bg-blue-500/10 py-1 px-3 rounded-full inline-block">
-              Professional Edition
-            </p>
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-[10px] tracking-widest uppercase text-blue-400 font-black bg-blue-500/10 py-1.5 px-4 rounded-full border border-blue-500/20">
+                Cloud-Native Infrastructure
+              </p>
+              <p className="text-[8px] uppercase tracking-[0.3em] text-zinc-600 font-bold">
+                Deploying to Vercel Protocol
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-zinc-400 leading-relaxed">
-            Secure management for chit fund cycles, member dividends, and group auctions.
+          <p className="text-sm text-zinc-400 leading-relaxed max-w-[280px]">
+            Absolute security via Google IAM. Authenticate to access fund management and member registries.
           </p>
           <button 
             onClick={signIn}
