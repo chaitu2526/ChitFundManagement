@@ -110,7 +110,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
                   
                   <div className="space-y-1 mb-8">
                     <h3 className="text-xl font-bold text-white tracking-tight pr-16">{group.name}</h3>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Asset Cluster Info</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Asset Chit Info</p>
                   </div>
                   
                   <div className="space-y-4">
@@ -150,7 +150,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
               </div>
               <div className="space-y-1">
                 <p className="text-lg font-bold text-zinc-300">No Active Enrollments</p>
-                <p className="text-xs text-zinc-600 uppercase font-black tracking-widest">This identity is not registered in any financial clusters.</p>
+                <p className="text-xs text-zinc-600 uppercase font-black tracking-widest">This identity is not registered in any financial chits.</p>
               </div>
             </div>
           )}

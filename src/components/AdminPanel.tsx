@@ -35,6 +35,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
   const [months, setMonths] = useState(20);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
 
+  // Group Editing State
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editGroupName, setEditGroupName] = useState('');
+  const [editTotalValue, setEditTotalValue] = useState(0);
+  const [editMonths, setEditMonths] = useState(0);
+  const [editStartDate, setEditStartDate] = useState('');
+
   // Group Assignment State
   const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [selectedMember, setSelectedMember] = useState<string>('');
@@ -132,6 +139,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
     setShowGroupForm(false);
   };
 
+  const startEditGroup = (group: Group) => {
+    setEditingGroupId(group.id);
+    setEditGroupName(group.name);
+    setEditTotalValue(group.totalChitValue);
+    setEditMonths(group.totalMonths);
+    setEditStartDate(group.startDate.toDate().toISOString().split('T')[0]);
+  };
+
+  const handleUpdateGroup = async (id: string) => {
+    await chitService.updateGroup(id, {
+      name: editGroupName,
+      totalChitValue: editTotalValue,
+      totalMonths: editMonths,
+      totalSlots: editMonths, // Keep it simplified: 1 slot/month
+      startDate: Timestamp.fromDate(new Date(editStartDate))
+    });
+    setEditingGroupId(null);
+  };
+
+  const handleDeleteGroup = async (id: string) => {
+    const hasEnrollments = allMemberships.some(m => m.groupId === id);
+    if (hasEnrollments) {
+      alert("Cannot delete chit. This group currently has enrolled members. Please remove all enrollments first.");
+      return;
+    }
+
+    if (confirm("Are you sure you want to delete this financial chit? All historical auction data (if any) will persist in logs but the group will be removed from circulation.")) {
+      await chitService.deleteGroup(id);
+    }
+  };
+
   const handleAssignMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedGroup || !selectedMember) return;
@@ -146,8 +184,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
   };
 
   const handleDeleteAssignment = async (id: string) => {
-    if (confirm("Are you sure you want to remove this member from the group?")) {
-      await chitService.removeGroupMember(id);
+    console.log("Attempting to delete assignment:", id);
+    if (window.confirm("Are you sure you want to remove this member from the group?")) {
+      try {
+        await chitService.removeGroupMember(id);
+        console.log("Assignment deleted successfully");
+      } catch (error) {
+        console.error("Failed to delete assignment:", error);
+        alert("Failed to remove enrollment. Check console for details.");
+      }
     }
   };
 
@@ -232,29 +277,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
             </div>
           )}
 
-          <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/20">
-            <div className="min-w-[700px]">
-              <div className="grid grid-cols-[1fr,1.5fr,1fr,0.5fr] p-5 col-header bg-white/5 border-b border-white/5">
-                <div>Stakeholder</div>
-                <div>Communication Link</div>
-                <div>Connectivity</div>
-                <div className="text-right">Manage</div>
+          <div className="overflow-hidden rounded-2xl border border-white/5 bg-black/20">
+            <div className="min-w-[800px]">
+              <div className="grid grid-cols-[1fr,1.5fr,1fr,0.5fr] col-header bg-white/5 border-b border-white/5 divide-x divide-white/5">
+                <div className="p-4">Stakeholder</div>
+                <div className="p-4">Communication Link</div>
+                <div className="p-4">Connectivity</div>
+                <div className="p-4 text-right">Manage</div>
               </div>
               <div className="divide-y divide-white/5">
                 {members.map(member => (
-                  <div key={member.id} className="grid grid-cols-[1fr,1.5fr,1fr,0.5fr] data-row border-0 group hover:bg-white/[0.02]">
+                  <div key={member.id} className="grid grid-cols-[1fr,1.5fr,1fr,0.5fr] data-row p-0 border-0 group hover:bg-white/[0.02] divide-x divide-white/5">
                     {editingMemberId === member.id ? (
                       <>
-                        <div className="pr-4">
+                        <div className="p-4">
                           <input value={editName} onChange={e => setEditName(e.target.value)} className="input-technical py-0.5" />
                         </div>
-                        <div className="pr-4">
+                        <div className="p-4">
                           <input value={editEmail} onChange={e => setEditEmail(e.target.value)} className="input-technical py-0.5 text-xs" />
                         </div>
-                        <div className="pr-4">
+                        <div className="p-4">
                           <input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="input-technical py-0.5 text-xs" />
                         </div>
-                        <div className="flex gap-4 justify-end">
+                        <div className="p-4 flex gap-4 justify-end">
                           <button onClick={() => handleUpdateMember(member.id)} className="text-emerald-500 hover:scale-110 transition-transform">
                             <Check size={18} />
                           </button>
@@ -265,10 +310,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
                       </>
                     ) : (
                       <>
-                        <div className="font-bold text-zinc-200">{member.name}</div>
-                        <div className="data-value text-xs text-zinc-500">{member.email}</div>
-                        <div className="data-value text-xs text-zinc-500">{member.phone || 'NOT SET'}</div>
-                        <div className="flex gap-4 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="p-4 font-bold text-zinc-200 flex items-center">{member.name}</div>
+                        <div className="p-4 data-value text-xs text-zinc-500 flex items-center">{member.email}</div>
+                        <div className="p-4 data-value text-xs text-zinc-500 flex items-center">{member.phone || 'NOT SET'}</div>
+                        <div className="p-4 flex gap-4 justify-end items-center opacity-0 group-hover:opacity-100 transition-opacity">
                           <button onClick={() => startEditMember(member)} className="text-blue-400 hover:text-blue-300 transition-colors">
                             <Edit2 size={16} />
                           </button>
@@ -290,7 +335,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
         <div className="space-y-6">
           <div className="flex justify-between items-center bg-white/5 p-6 rounded-2xl border border-white/5">
             <div className="space-y-1">
-              <h2 className="text-xl font-bold text-white tracking-tight">Active Clusters</h2>
+              <h2 className="text-xl font-bold text-white tracking-tight">Active Chits</h2>
               <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Configure financial cycles</p>
             </div>
             <button 
@@ -298,16 +343,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
               className="btn-technical flex items-center gap-2"
             >
               {showGroupForm ? <CloseIcon size={16} /> : <Plus size={16} />}
-              {showGroupForm ? 'Cancel' : 'Initialize Group'}
+              {showGroupForm ? 'Cancel' : 'Initialize Chit'}
             </button>
           </div>
 
           {showGroupForm && (
             <div className="glass-panel p-8 max-w-3xl animate-in zoom-in-95 duration-200">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-blue-400 mb-8">Initialize Financial Cluster</h3>
+              <h3 className="text-sm font-bold uppercase tracking-widest text-blue-400 mb-8">Initialize Financial Chit</h3>
               <form onSubmit={handleCreateGroup} className="grid grid-cols-2 gap-8">
                 <div className="space-y-2">
-                  <label className="col-header">Cluster Identification</label>
+                  <label className="col-header">Chit Identification</label>
                   <input value={groupName} onChange={e => setGroupName(e.target.value)} className="input-technical" placeholder="e.g. Diamond-2026" required />
                 </div>
                 <div className="space-y-2">
@@ -323,29 +368,68 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
                   <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="input-technical" required />
                 </div>
                 <div className="col-span-2 pt-4">
-                  <button type="submit" className="btn-technical w-full py-4 text-sm">Deploy Cluster</button>
+                  <button type="submit" className="btn-technical w-full py-4 text-sm">Deploy Chit</button>
                 </div>
               </form>
             </div>
           )}
 
-          <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/20">
+          <div className="overflow-hidden rounded-2xl border border-white/5 bg-black/20">
             <div className="min-w-[800px]">
-              <div className="grid grid-cols-[1.5fr,1fr,1fr,1fr,1.5fr] p-5 col-header bg-white/5 border-b border-white/5">
-                <div>Cluster Identity</div>
-                <div>Lump Sum</div>
-                <div>Slots</div>
-                <div>Cycles</div>
-                <div className="text-right">Live Activation</div>
+              <div className="grid grid-cols-[1.5fr,1fr,1fr,1fr,1fr,0.5fr] col-header bg-white/5 border-b border-white/5 divide-x divide-white/5">
+                <div className="p-4">Chit Identity</div>
+                <div className="p-4">Lump Sum</div>
+                <div className="p-4">Slots</div>
+                <div className="p-4">Cycles</div>
+                <div className="p-4">Activation</div>
+                <div className="p-4 text-right">Manage</div>
               </div>
               <div className="divide-y divide-white/5">
                 {groups.map(group => (
-                  <div key={group.id} className="grid grid-cols-[1.5fr,1fr,1fr,1fr,1.5fr] data-row border-0 group hover:bg-white/[0.02]">
-                    <div className="font-bold text-zinc-200">{group.name}</div>
-                    <div className="data-value text-blue-400">₹{group.totalChitValue.toLocaleString()}</div>
-                    <div className="data-value text-zinc-400">{group.totalSlots}</div>
-                    <div className="data-value text-zinc-400">{group.totalMonths} MO</div>
-                    <div className="data-value text-[10px] text-zinc-500 text-right uppercase tracking-widest">{group.startDate.toDate().toLocaleDateString()}</div>
+                  <div key={group.id} className="grid grid-cols-[1.5fr,1fr,1fr,1fr,1fr,0.5fr] data-row p-0 border-0 group hover:bg-white/[0.02] divide-x divide-white/5">
+                    {editingGroupId === group.id ? (
+                      <>
+                        <div className="p-4">
+                          <input value={editGroupName} onChange={e => setEditGroupName(e.target.value)} className="input-technical py-0.5 text-xs" />
+                        </div>
+                        <div className="p-4">
+                          <input type="number" value={editTotalValue} onChange={e => setEditTotalValue(Number(e.target.value))} className="input-technical py-0.5 text-xs" />
+                        </div>
+                        <div className="p-4 flex items-center">
+                          <div className="text-[10px] text-zinc-600 font-mono italic">SYNCED</div>
+                        </div>
+                        <div className="p-4">
+                          <input type="number" value={editMonths} onChange={e => setEditMonths(Number(e.target.value))} className="input-technical py-0.5 text-xs" />
+                        </div>
+                        <div className="p-4">
+                          <input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} className="input-technical py-0.5 text-[9px]" />
+                        </div>
+                        <div className="p-4 flex gap-4 justify-end items-center">
+                          <button onClick={() => handleUpdateGroup(group.id)} className="text-emerald-500 hover:scale-110 transition-transform">
+                            <Check size={18} />
+                          </button>
+                          <button onClick={() => setEditingGroupId(null)} className="text-red-500 hover:scale-110 transition-transform">
+                            <CloseIcon size={18} />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="p-4 font-bold text-zinc-200 flex items-center">{group.name}</div>
+                        <div className="p-4 data-value text-blue-400 flex items-center font-bold">₹{group.totalChitValue.toLocaleString()}</div>
+                        <div className="p-4 data-value text-zinc-400 flex items-center">{group.totalSlots}</div>
+                        <div className="p-4 data-value text-zinc-400 flex items-center">{group.totalMonths} MO</div>
+                        <div className="p-4 data-value text-[10px] text-zinc-500 uppercase tracking-widest flex items-center">{group.startDate.toDate().toLocaleDateString()}</div>
+                        <div className="p-4 flex gap-4 justify-end items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => startEditGroup(group)} className="text-blue-400 hover:text-blue-300 transition-colors">
+                            <Edit2 size={16} />
+                          </button>
+                          <button onClick={() => handleDeleteGroup(group.id)} className="text-red-500/50 hover:text-red-500 transition-colors">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -366,14 +450,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
             
             <form onSubmit={handleAssignMember} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
               <div className="space-y-2">
-                <label className="col-header">Target Cluster</label>
+                <label className="col-header">Target Chit</label>
                 <select 
                   className="input-technical" 
                   value={selectedGroup} 
                   onChange={e => setSelectedGroup(e.target.value)}
                   required
                 >
-                  <option value="" className="bg-[#161b22]">-- Choose Cluster --</option>
+                  <option value="" className="bg-[#161b22]">-- Choose Chit --</option>
                   {groups.map(g => <option key={g.id} value={g.id} className="bg-[#161b22]">{g.name}</option>)}
                 </select>
               </div>
@@ -422,15 +506,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
                             const group = groups.find(g => g.id === mship.groupId);
                             return (
                               <div key={mship.id} className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5 group">
-                                <span className="font-semibold text-zinc-400">{group?.name || 'TERMINATED CLUSTER'}</span>
+                                <span className="font-semibold text-zinc-400">{group?.name || 'TERMINATED CHIT'}</span>
                                 <div className="flex items-center gap-6">
                                   <span className="data-value text-blue-400 font-bold">{mship.slots} {mship.slots === 1 ? 'UNIT' : 'UNITS'}</span>
                                   <button 
                                     onClick={() => handleDeleteAssignment(mship.id)}
-                                    className="text-red-500/30 hover:text-red-500 transition-colors p-1"
+                                    className="p-2 mr-1 rounded-lg bg-red-500/5 text-red-500/60 hover:bg-red-500/10 hover:text-red-500 transition-all flex items-center justify-center group/del"
                                     title="Revoke Assignment"
                                   >
-                                    <Trash2 size={16} />
+                                    <Trash2 size={16} className="group-hover/del:scale-110 transition-transform" />
                                   </button>
                                 </div>
                               </div>

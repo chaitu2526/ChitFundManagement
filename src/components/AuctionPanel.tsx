@@ -131,13 +131,13 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
         </div>
         
         <div className="relative z-10 w-full md:w-auto">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-2">Select Active Cluster</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-2">Select Active Chit</p>
           <select 
             className="w-full md:min-w-[250px] bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold tracking-wide outline-none focus:border-blue-500/50 transition-all appearance-none"
             value={selectedGroupId}
             onChange={e => setSelectedGroupId(e.target.value)}
           >
-            <option value="" className="bg-[#0a0b10]">-- Select Chit Group --</option>
+            <option value="" className="bg-[#0a0b10]">-- Select Active Chit --</option>
             {groups.map(g => <option key={g.id} value={g.id} className="bg-[#0a0b10]">{g.name}</option>)}
           </select>
         </div>
@@ -208,7 +208,7 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
             </div>
 
             <div className="glass-panel p-6 border-white/5 bg-transparent">
-              <h3 className="col-header mb-6">Cluster Parameters</h3>
+              <h3 className="col-header mb-6">Chit Parameters</h3>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
                   <p className="col-header text-[9px]">Value</p>
@@ -333,7 +333,7 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
             <Hammer size={32} className="opacity-20" />
           </div>
           <div className="space-y-2">
-            <h3 className="text-xl font-bold text-zinc-300">Awaiting Cluster Selection</h3>
+            <h3 className="text-xl font-bold text-zinc-300">Awaiting Chit Selection</h3>
             <p className="max-w-[300px] text-sm text-zinc-500 font-medium">Please select an active chit group from the header to manage auctions and broadcast dividends.</p>
           </div>
         </div>

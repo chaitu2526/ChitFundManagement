@@ -172,7 +172,7 @@ export const Overview: React.FC<OverviewProps> = ({ groups, members }) => {
             </div>
             <BarChart3 size={16} className="opacity-10 group-hover:opacity-20 transition-all" />
           </div>
-          <p className="col-header mb-1">Active Clusters</p>
+          <p className="col-header mb-1">Active Chits</p>
           <p className="data-value text-4xl font-bold text-white tracking-tight">{activeGroups.length}</p>
         </div>
 
@@ -203,7 +203,7 @@ export const Overview: React.FC<OverviewProps> = ({ groups, members }) => {
 
       <section className="space-y-8">
         <div className="flex items-bottom justify-between gap-4 border-b border-white/5 pb-4">
-          <h2 className="text-xl font-bold tracking-widest uppercase text-white/50">Active Group Clusters</h2>
+          <h2 className="text-xl font-bold tracking-widest uppercase text-white/50">Active Group Chits</h2>
           <div className="h-px bg-white/5 flex-1 mb-2"></div>
         </div>
         

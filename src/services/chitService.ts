@@ -110,6 +110,24 @@ export const chitService = {
     }, (e) => handleFirestoreError(e, OperationType.LIST, path));
   },
 
+  async updateGroup(id: string, data: Partial<Omit<Group, 'id' | 'createdAt'>>) {
+    const path = 'groups';
+    try {
+      await updateDoc(doc(db, path, id), data);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, path);
+    }
+  },
+
+  async deleteGroup(id: string) {
+    const path = 'groups';
+    try {
+      await deleteDoc(doc(db, path, id));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, path);
+    }
+  },
+
   // Group Members
   async addGroupMember(data: Omit<GroupMember, 'id' | 'joinedAt'>) {
     const path = 'groupMembers';
