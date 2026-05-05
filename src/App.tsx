@@ -22,6 +22,8 @@ export default function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
 
+  const [authError, setAuthError] = useState<string | null>(null);
+
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -40,6 +42,24 @@ export default function App() {
 
     return () => unsubAuth();
   }, [user]);
+
+  const handleSignIn = async () => {
+    setAuthError(null);
+    try {
+      await signIn();
+    } catch (error: any) {
+      console.error("Auth error:", error);
+      if (error.code === 'auth/popup-blocked') {
+        setAuthError("Popup blocked by browser. Please enable popups and try again.");
+      } else if (error.code === 'auth/unauthorized-domain') {
+        setAuthError("This domain is not authorized in Firebase. Add your Vercel URL to 'Authorized Domains' in Firebase console.");
+      } else if (error.code === 'auth/operation-not-allowed') {
+        setAuthError("Google Sign-In is not enabled in your Firebase project.");
+      } else {
+        setAuthError(error.message || "Authentication failed. Check your Firebase credentials.");
+      }
+    }
+  };
 
   const isAdmin = user?.email === ADMIN_EMAIL;
 
@@ -77,13 +97,22 @@ export default function App() {
           <p className="text-sm text-zinc-400 leading-relaxed max-w-[280px]">
             Absolute security via Google IAM. Authenticate to access fund management and member registries.
           </p>
-          <button 
-            onClick={signIn}
-            className="btn-technical w-full flex justify-center items-center gap-3 py-4 text-sm"
-          >
-            <LogIn size={20} />
-            <span>Authenticate Session</span>
-          </button>
+          <div className="w-full space-y-4">
+            <button 
+              onClick={handleSignIn}
+              className="btn-technical w-full flex justify-center items-center gap-3 py-4 text-sm hover:scale-[1.02] active:scale-[0.98] transition-all"
+            >
+              <LogIn size={20} />
+              <span>Authenticate Session</span>
+            </button>
+
+            {authError && (
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-medium animate-in fade-in slide-in-from-top-2">
+                <p>{authError}</p>
+                <p className="mt-2 text-[10px] opacity-70">Error Code: {authError.includes('domain') ? 'UNAUTHORIZED_DOMAIN' : 'AUTH_FAILURE'}</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );

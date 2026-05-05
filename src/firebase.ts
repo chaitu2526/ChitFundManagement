@@ -15,6 +15,11 @@ const config = {
 };
 
 const app = initializeApp(config);
+
+if (!config.apiKey || config.apiKey === 'your_api_key') {
+  console.warn("Firebase API Key is missing or invalid. Deployment might fail. Please set VITE_FIREBASE_API_KEY in Vercel.");
+}
+
 export const db = getFirestore(app, config.firestoreDatabaseId);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
