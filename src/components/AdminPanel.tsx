@@ -1,22 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { chitService } from '../services/chitService';
-import { Member, Group, GroupMember } from '../types';
-import { Plus, Users, LayoutDashboard, UserPlus, Info, Trash2, Edit2, Check, X as CloseIcon, FileUp } from 'lucide-react';
+import { Member, Group, GroupMember, AuthorizedUser, UserRole } from '../types';
+import { Plus, Users, LayoutDashboard, UserPlus, Info, Trash2, Edit2, Check, X as CloseIcon, FileUp, ShieldCheck, MailPlus } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 
 interface AdminPanelProps {
   members: Member[];
   groups: Group[];
+  isSuperUser: boolean;
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
-  const [activeTab, setActiveTab] = useState<'members' | 'groups' | 'assignments'>('groups');
+export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups, isSuperUser }) => {
+  const [activeTab, setActiveTab] = useState<'members' | 'groups' | 'assignments' | 'access'>('groups');
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [showGroupForm, setShowGroupForm] = useState(false);
   const [allMemberships, setAllMemberships] = useState<GroupMember[]>([]);
+  const [authorizedUsers, setAuthorizedUsers] = useState<AuthorizedUser[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Access Control State
+  const [newAuthEmail, setNewAuthEmail] = useState('');
+  const [newAuthRole, setNewAuthRole] = useState<UserRole>(UserRole.DISPLAY);
 
   // Member Editing State
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
@@ -48,8 +54,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
   const [slots, setSlots] = useState(1);
 
   useEffect(() => {
-    const unsub = chitService.getAllMemberships(setAllMemberships);
-    return () => unsub();
+    const unsubMemberships = chitService.getAllMemberships(setAllMemberships);
+    const unsubAccess = chitService.getAuthorizedUsers(setAuthorizedUsers);
+    return () => {
+      unsubMemberships();
+      unsubAccess();
+    };
   }, []);
 
   const handleCreateMember = async (e: React.FormEvent) => {
@@ -196,6 +206,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
     }
   };
 
+  const handleAddAuthorizedUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAuthEmail) return;
+    
+    // Check if already exists
+    if (authorizedUsers.some(u => u.email === newAuthEmail.toLowerCase().trim())) {
+      alert("This email is already whitelisted.");
+      return;
+    }
+
+    await chitService.addAuthorizedUser(newAuthEmail, newAuthRole);
+    setNewAuthEmail('');
+  };
+
+  const handleRemoveAuthorizedUser = async (id: string) => {
+    if (confirm("Are you sure you want to revoke system connectivity for this user? They will lose access immediately.")) {
+      await chitService.removeAuthorizedUser(id);
+    }
+  };
+
   return (
     <div className="space-y-8 pb-20">
       <div className="flex gap-4 p-1.5 bg-white/5 rounded-2xl w-fit border border-white/5">
@@ -217,6 +247,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
         >
           <UserPlus size={16} /> <span className="tracking-widest uppercase">Enrollment</span>
         </button>
+        {isSuperUser && (
+          <button 
+            onClick={() => setActiveTab('access')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold transition-all ${activeTab === 'access' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            <ShieldCheck size={16} /> <span className="tracking-widest uppercase">System Access</span>
+          </button>
+        )}
       </div>
 
       {activeTab === 'members' && (
@@ -530,6 +568,89 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups }) => {
                 </div>
                 {allMemberships.length === 0 && (
                   <div className="p-16 text-center text-zinc-700 italic text-xs tracking-[0.3em] uppercase">No active enrollments detected</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'access' && (
+        <div className="space-y-8 animate-in fade-in duration-300">
+          <div className="glass-panel p-8 shadow-2xl shadow-blue-500/5">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+                <MailPlus size={20} />
+              </div>
+              <h2 className="text-xl font-bold text-white tracking-tight">Access Control Protocol</h2>
+            </div>
+            
+            <form onSubmit={handleAddAuthorizedUser} className="flex flex-wrap gap-4 max-w-4xl">
+              <div className="flex-1 min-w-[250px] space-y-2">
+                <label className="col-header">Authorized Email Identity</label>
+                <input 
+                  type="email" 
+                  value={newAuthEmail} 
+                  onChange={e => setNewAuthEmail(e.target.value)} 
+                  className="input-technical" 
+                  placeholder="e.g. user@domain.com" 
+                  required 
+                />
+              </div>
+              <div className="min-w-[200px] space-y-2">
+                <label className="col-header">Clearance Level</label>
+                <select 
+                  value={newAuthRole} 
+                  onChange={e => setNewAuthRole(e.target.value as UserRole)} 
+                  className="input-technical"
+                  required
+                >
+                  <option value={UserRole.DISPLAY} className="bg-[#161b22]">Display Only (Read-Only)</option>
+                  <option value={UserRole.MANAGER} className="bg-[#161b22]">System Manager (Full Ops)</option>
+                </select>
+              </div>
+              <button type="submit" className="btn-technical self-end py-3 px-8 text-sm">Whitelisting</button>
+            </form>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-zinc-500">
+              Authorized System Operators
+            </div>
+            
+            <div className="overflow-hidden rounded-2xl border border-white/5 bg-black/20">
+              <div className="grid grid-cols-[1fr,1fr,0.5fr] col-header bg-white/5 border-b border-white/5 p-4">
+                <div>Email Identity</div>
+                <div>Clearance</div>
+                <div className="text-right">Manage Access</div>
+              </div>
+              <div className="divide-y divide-white/5">
+                {authorizedUsers.map(user => (
+                  <div key={user.id} className="grid grid-cols-[1fr,1fr,0.5fr] p-4 items-center group hover:bg-white/[0.02]">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)] ${user.role === UserRole.MANAGER ? 'bg-blue-500' : 'bg-emerald-500'}`}></div>
+                      <span className="font-mono text-zinc-300">{user.email}</span>
+                    </div>
+                    <div>
+                      <span className={`text-[10px] uppercase tracking-widest font-black px-3 py-1 rounded-full ${user.role === UserRole.MANAGER ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                        {user.role}
+                      </span>
+                    </div>
+                    <div className="flex justify-end">
+                      <button 
+                        onClick={() => handleRemoveAuthorizedUser(user.id)}
+                        className="p-2 text-red-500/30 hover:text-red-500 transition-all rounded-lg hover:bg-red-500/10"
+                        title="Revoke Identity"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {authorizedUsers.length === 0 && (
+                  <div className="p-12 text-center text-zinc-600 italic text-xs tracking-widest uppercase">
+                    No authorized operators found beyond primary administrator
+                  </div>
                 )}
               </div>
             </div>

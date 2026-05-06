@@ -18,6 +18,26 @@ service cloud.firestore {
       );
     }
 
+    function isWhitelisted() {
+      return isAdmin() || (
+        isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        exists(/databases/$(database)/documents/authorizedUsers/$(request.auth.token.email))
+      );
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/authorizedUsers/$(request.auth.token.email)).data.role;
+    }
+
+    function isManager() {
+      return isAdmin() || (isWhitelisted() && getUserRole() == 'manager');
+    }
+
+    function isDisplayOnly() {
+      return isWhitelisted() && getUserRole() == 'display';
+    }
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -68,39 +88,44 @@ service cloud.firestore {
     }
 
     // Rules
+    match /authorizedUsers/{email} {
+      allow read: if isSignedIn() && (isAdmin() || email == request.auth.token.email);
+      allow write: if isAdmin();
+    }
+
     match /members/{memberId} {
-      allow read: if isSignedIn();
-      allow create: if isAdmin() && isValidMember(incoming());
-      allow update: if isAdmin() && isValidMember(incoming()) &&
+      allow read: if isWhitelisted();
+      allow create: if isManager() && isValidMember(incoming());
+      allow update: if isManager() && isValidMember(incoming()) &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'phone']);
-      allow delete: if isAdmin();
+      allow delete: if isManager();
     }
 
     match /groups/{groupId} {
-      allow read: if isSignedIn();
-      allow create: if isAdmin() && isValidGroup(incoming());
-      allow update: if isAdmin() && isValidGroup(incoming()) &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'status']);
-      allow delete: if isAdmin();
+      allow read: if isWhitelisted();
+      allow create: if isManager() && isValidGroup(incoming());
+      allow update: if isManager() && isValidGroup(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'status', 'totalChitValue', 'totalMonths', 'totalSlots', 'startDate']);
+      allow delete: if isManager();
     }
 
     match /groupMembers/{mappingId} {
-      allow read: if isSignedIn();
-      allow create: if isAdmin() && isValidGroupMember(incoming()) &&
+      allow read: if isWhitelisted();
+      allow create: if isManager() && isValidGroupMember(incoming()) &&
                     exists(/databases/$(database)/documents/members/$(incoming().memberId)) &&
                     exists(/databases/$(database)/documents/groups/$(incoming().groupId));
-      allow update: if isAdmin() && isValidGroupMember(incoming()) &&
+      allow update: if isManager() && isValidGroupMember(incoming()) &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['slots']);
-      allow delete: if isAdmin();
+      allow delete: if isManager();
     }
 
     match /auctions/{auctionId} {
-      allow read: if isSignedIn();
-      allow create: if isAdmin() && isValidAuction(incoming()) &&
+      allow read: if isWhitelisted();
+      allow create: if isManager() && isValidAuction(incoming()) &&
                     exists(/databases/$(database)/documents/groups/$(incoming().groupId)) &&
                     exists(/databases/$(database)/documents/members/$(incoming().winnerMemberId));
       allow update: if false; // Auctions are immutable history
-      allow delete: if isAdmin();
+      allow delete: if isManager();
     }
   }
 }

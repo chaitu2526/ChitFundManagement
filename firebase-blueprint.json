@@ -53,9 +53,24 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["groupId", "monthNumber", "winningBid", "winnerMemberId", "dividendPerSlot", "auctionDate", "createdAt"]
+    },
+    "AuthorizedUser": {
+      "title": "Authorized User",
+      "description": "Whitelist of emails allowed to browse the application.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["manager", "display"] },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "addedAt"]
     }
   },
   "firestore": {
+    "/authorizedUsers/{email}": {
+      "schema": "AuthorizedUser",
+      "description": "System whitelist for access control."
+    },
     "/members/{memberId}": {
       "schema": "Member",
       "description": "Global list of all members."

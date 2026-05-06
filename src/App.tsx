@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth, signIn, signOut } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { chitService } from './services/chitService';
-import { Member, Group } from './types';
+import { Member, Group, AuthorizedUser, UserRole } from './types';
 import { AdminPanel } from './components/AdminPanel';
 import { AuctionPanel } from './components/AuctionPanel';
 import { MemberDashboard } from './components/MemberDashboard';
@@ -21,6 +21,7 @@ export default function App() {
   // Global Data State
   const [members, setMembers] = useState<Member[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [authorizedUsers, setAuthorizedUsers] = useState<AuthorizedUser[]>([]);
 
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -33,10 +34,12 @@ export default function App() {
     if (user) {
       const unsubMembers = chitService.getMembers(setMembers);
       const unsubGroups = chitService.getGroups(setGroups);
+      const unsubAllowed = chitService.getAuthorizedUsers(setAuthorizedUsers);
       return () => {
         unsubAuth();
         unsubMembers();
         unsubGroups();
+        unsubAllowed();
       };
     }
 
@@ -62,6 +65,11 @@ export default function App() {
   };
 
   const isAdmin = user?.email === ADMIN_EMAIL;
+  const userAccess = authorizedUsers.find(u => u.email.toLowerCase() === user?.email?.toLowerCase());
+  
+  const isAuthorized = isAdmin || !!userAccess;
+  const isManager = isAdmin || userAccess?.role === UserRole.MANAGER;
+  const isDisplayOnly = !isAdmin && userAccess?.role === UserRole.DISPLAY;
 
   if (loading) {
     return (
@@ -118,10 +126,44 @@ export default function App() {
     );
   }
 
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0b10] p-6">
+        <div className="max-w-md w-full glass-panel p-12 space-y-8 flex flex-col items-center text-center">
+          <div className="p-5 bg-red-600/20 text-red-400 rounded-2xl border border-red-500/30">
+            <Shield size={48} />
+          </div>
+          <div className="space-y-4">
+            <h1 className="text-2xl font-bold tracking-tight text-white">
+              Access Denied
+            </h1>
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              Your identity (<span className="text-zinc-200 font-mono">{user.email}</span>) is authenticated but not authorized for this environment.
+            </p>
+          </div>
+          <div className="w-full pt-6 border-t border-white/5 space-y-4">
+            <p className="text-[10px] uppercase tracking-widest text-zinc-600 font-bold">
+              Contact administrator for whitelisting
+            </p>
+            <button 
+              onClick={signOut}
+              className="btn-technical w-full py-4 text-xs flex justify-center items-center gap-2"
+            >
+              <LogOut size={16} />
+              Switch Account
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const renderView = () => {
+    if (isDisplayOnly) return <Overview groups={groups} members={members} />;
+
     switch (view) {
       case 'overview': return <Overview groups={groups} members={members} />;
-      case 'admin': return <AdminPanel groups={groups} members={members} />;
+      case 'admin': return <AdminPanel groups={groups} members={members} isSuperUser={isAdmin} />;
       case 'auctions': return <AuctionPanel groups={groups} members={members} />;
       case 'member': return <MemberDashboard groups={groups} members={members} />;
     }
@@ -148,14 +190,15 @@ export default function App() {
             >
               Overview
             </button>
-            <button 
-              onClick={() => setView('member')} 
-              className={`px-4 py-2 rounded-lg transition-all ${view === 'member' ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-            >
-              Members
-            </button>
-            {isAdmin && (
+            
+            {!isDisplayOnly && (
               <>
+                <button 
+                  onClick={() => setView('member')} 
+                  className={`px-4 py-2 rounded-lg transition-all ${view === 'member' ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                >
+                  Members
+                </button>
                 <button 
                   onClick={() => setView('auctions')} 
                   className={`px-4 py-2 rounded-lg transition-all ${view === 'auctions' ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
@@ -205,9 +248,9 @@ export default function App() {
             className="fixed inset-0 z-40 bg-[#0a0b10] md:hidden pt-24 px-8 space-y-6 flex flex-col text-xl font-bold uppercase tracking-widest text-[#f0f6fc]"
           >
             <button className="text-left py-4 border-b border-white/5" onClick={() => { setView('overview'); setIsMenuOpen(false); }}>Overview</button>
-            <button className="text-left py-4 border-b border-white/5" onClick={() => { setView('member'); setIsMenuOpen(false); }}>Member View</button>
-            {isAdmin && (
+            {!isDisplayOnly && (
               <>
+                <button className="text-left py-4 border-b border-white/5" onClick={() => { setView('member'); setIsMenuOpen(false); }}>Member View</button>
                 <button className="text-left py-4 border-b border-white/5" onClick={() => { setView('auctions'); setIsMenuOpen(false); }}>Auctions</button>
                 <button className="text-left py-4 border-b border-white/5 text-blue-400" onClick={() => { setView('admin'); setIsMenuOpen(false); }}>System Setup</button>
               </>

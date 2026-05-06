@@ -38,6 +38,18 @@ export interface Auction {
   createdAt: Timestamp;
 }
 
+export enum UserRole {
+  MANAGER = 'manager',
+  DISPLAY = 'display'
+}
+
+export interface AuthorizedUser {
+  id: string;
+  email: string;
+  role: UserRole;
+  addedAt: Timestamp;
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',

@@ -4,6 +4,7 @@ import {
   updateDoc, 
   deleteDoc, 
   doc, 
+  setDoc,
   getDocs, 
   query, 
   where, 
@@ -13,7 +14,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { Member, Group, GroupMember, Auction, OperationType, FirestoreErrorInfo } from '../types';
+import { Member, Group, GroupMember, Auction, AuthorizedUser, UserRole, OperationType, FirestoreErrorInfo } from '../types';
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errInfo: FirestoreErrorInfo = {
@@ -196,5 +197,37 @@ export const chitService = {
       const auctions = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Auction));
       callback(auctions);
     }, (e) => handleFirestoreError(e, OperationType.LIST, path));
+  },
+
+  // Authorized Users (Access Control)
+  async addAuthorizedUser(email: string, role: UserRole) {
+    const path = 'authorizedUsers';
+    const sanitizedEmail = email.toLowerCase().trim();
+    try {
+      return await setDoc(doc(db, path, sanitizedEmail), {
+        email: sanitizedEmail,
+        role: role,
+        addedAt: serverTimestamp()
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, path);
+    }
+  },
+
+  getAuthorizedUsers(callback: (users: AuthorizedUser[]) => void) {
+    const path = 'authorizedUsers';
+    return onSnapshot(collection(db, path), (snapshot) => {
+      const users = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AuthorizedUser));
+      callback(users);
+    }, (e) => handleFirestoreError(e, OperationType.LIST, path));
+  },
+
+  async removeAuthorizedUser(id: string) {
+    const path = 'authorizedUsers';
+    try {
+      await deleteDoc(doc(db, path, id));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, path);
+    }
   }
 };
