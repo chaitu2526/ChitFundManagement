@@ -12,22 +12,19 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'chaitu2513@gmail.com' &&
-        request.auth.token.email_verified == true
-      );
+      return isSignedIn() && 
+             request.auth.token.email.matches('(?i)chaitu2513@gmail.com');
     }
 
     function isWhitelisted() {
       return isAdmin() || (
         isSignedIn() &&
-        request.auth.token.email_verified == true &&
-        exists(/databases/$(database)/documents/authorizedUsers/$(request.auth.token.email))
+        exists(/databases/$(database)/documents/authorizedUsers/$(request.auth.token.email.lower()))
       );
     }
 
     function getUserRole() {
-      return get(/databases/$(database)/documents/authorizedUsers/$(request.auth.token.email)).data.role;
+      return get(/databases/$(database)/documents/authorizedUsers/$(request.auth.token.email.lower())).data.role;
     }
 
     function isManager() {
@@ -89,7 +86,8 @@ service cloud.firestore {
 
     // Rules
     match /authorizedUsers/{email} {
-      allow read: if isSignedIn() && (isAdmin() || email == request.auth.token.email);
+      allow list: if isAdmin();
+      allow get: if isSignedIn() && (isAdmin() || email.lower() == request.auth.token.email.lower());
       allow write: if isAdmin();
     }
 

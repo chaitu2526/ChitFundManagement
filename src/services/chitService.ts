@@ -222,6 +222,18 @@ export const chitService = {
     }, (e) => handleFirestoreError(e, OperationType.LIST, path));
   },
 
+  getAuthorizedUserByEmail(email: string, callback: (user: AuthorizedUser | null) => void) {
+    const path = 'authorizedUsers';
+    const sanitizedEmail = email.toLowerCase().trim();
+    return onSnapshot(doc(db, path, sanitizedEmail), (snapshot) => {
+      if (snapshot.exists()) {
+        callback({ id: snapshot.id, ...snapshot.data() } as AuthorizedUser);
+      } else {
+        callback(null);
+      }
+    }, (e) => handleFirestoreError(e, OperationType.GET, path));
+  },
+
   async removeAuthorizedUser(id: string) {
     const path = 'authorizedUsers';
     try {

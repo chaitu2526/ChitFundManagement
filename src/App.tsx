@@ -22,6 +22,7 @@ export default function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [authorizedUsers, setAuthorizedUsers] = useState<AuthorizedUser[]>([]);
+  const [currentUserAccess, setCurrentUserAccess] = useState<AuthorizedUser | null>(null);
 
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -31,15 +32,25 @@ export default function App() {
       setLoading(false);
     });
 
-    if (user) {
+    if (user && user.email) {
       const unsubMembers = chitService.getMembers(setMembers);
       const unsubGroups = chitService.getGroups(setGroups);
-      const unsubAllowed = chitService.getAuthorizedUsers(setAuthorizedUsers);
+      
+      // For everyone: check their own access profile
+      const unsubOwnAccess = chitService.getAuthorizedUserByEmail(user.email, setCurrentUserAccess);
+      
+      // For Admins only: subscribe to the full list (for the setup panel)
+      let unsubAllowed: (() => void) | null = null;
+      if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        unsubAllowed = chitService.getAuthorizedUsers(setAuthorizedUsers);
+      }
+      
       return () => {
         unsubAuth();
         unsubMembers();
         unsubGroups();
-        unsubAllowed();
+        unsubOwnAccess();
+        if (unsubAllowed) unsubAllowed();
       };
     }
 
@@ -64,12 +75,11 @@ export default function App() {
     }
   };
 
-  const isAdmin = user?.email === ADMIN_EMAIL;
-  const userAccess = authorizedUsers.find(u => u.email.toLowerCase() === user?.email?.toLowerCase());
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
   
-  const isAuthorized = isAdmin || !!userAccess;
-  const isManager = isAdmin || userAccess?.role === UserRole.MANAGER;
-  const isDisplayOnly = !isAdmin && userAccess?.role === UserRole.DISPLAY;
+  const isAuthorized = isAdmin || !!currentUserAccess;
+  const isManager = isAdmin || currentUserAccess?.role === UserRole.MANAGER;
+  const isDisplayOnly = !isAdmin && currentUserAccess?.role === UserRole.DISPLAY;
 
   if (loading) {
     return (
