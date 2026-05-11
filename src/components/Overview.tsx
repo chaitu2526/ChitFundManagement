@@ -57,7 +57,7 @@ export const Overview: React.FC<OverviewProps> = ({ groups, members }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 mb-12">
             <div className="space-y-1">
               <p className="col-header flex items-center gap-2">
                 <Calendar size={12} /> Start Date
@@ -67,6 +67,10 @@ export const Overview: React.FC<OverviewProps> = ({ groups, members }) => {
             <div className="space-y-1">
               <p className="col-header">Duration</p>
               <p className="text-lg font-medium">{selectedGroup.totalMonths} Months</p>
+            </div>
+            <div className="space-y-1">
+              <p className="col-header">Total Slots</p>
+              <p className="text-lg font-medium">{selectedGroup.totalSlots}</p>
             </div>
             <div className="space-y-1">
               <p className="col-header">Base Payment</p>
