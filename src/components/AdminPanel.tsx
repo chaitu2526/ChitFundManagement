@@ -55,12 +55,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ members, groups, isSuper
 
   useEffect(() => {
     const unsubMemberships = chitService.getAllMemberships(setAllMemberships);
-    const unsubAccess = chitService.getAuthorizedUsers(setAuthorizedUsers);
+    
+    let unsubAccess: (() => void) | null = null;
+    if (isSuperUser) {
+      unsubAccess = chitService.getAuthorizedUsers(setAuthorizedUsers);
+    }
+
     return () => {
       unsubMemberships();
-      unsubAccess();
+      if (unsubAccess) unsubAccess();
     };
-  }, []);
+  }, [isSuperUser]);
 
   const handleCreateMember = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -50,10 +50,8 @@ service cloud.firestore {
     // Schema Validations
     function isValidMember(data) {
       return data.keys().hasAll(['name', 'email', 'createdAt']) &&
-             data.keys().size() == 4 && // name, email, createdAt, phone (optional but in my blueprint it was 4 properties)
              data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-             data.email is string && data.email.size() > 0 && data.email.size() <= 100 &&
-             data.createdAt == request.time;
+             data.email is string && data.email.size() > 0 && data.email.size() <= 100;
     }
 
     function isValidGroup(data) {
@@ -62,16 +60,14 @@ service cloud.firestore {
              data.totalChitValue is number && data.totalChitValue > 0 &&
              data.totalMonths is int && data.totalMonths > 0 &&
              data.totalSlots is int && data.totalSlots > 0 &&
-             data.status in ['active', 'completed'] &&
-             data.createdAt == request.time;
+             data.status in ['active', 'completed'];
     }
 
     function isValidGroupMember(data) {
       return data.keys().hasAll(['memberId', 'groupId', 'slots', 'joinedAt']) &&
              isValidId(data.memberId) &&
              isValidId(data.groupId) &&
-             data.slots is int && data.slots > 0 &&
-             data.joinedAt == request.time;
+             data.slots is int && data.slots > 0;
     }
 
     function isValidAuction(data) {
@@ -80,8 +76,7 @@ service cloud.firestore {
              isValidId(data.winnerMemberId) &&
              data.monthNumber is int && data.monthNumber > 0 &&
              data.winningBid is number && data.winningBid >= 0 &&
-             data.dividendPerSlot is number &&
-             data.createdAt == request.time;
+             data.dividendPerSlot is number;
     }
 
     // Rules
@@ -93,16 +88,18 @@ service cloud.firestore {
 
     match /members/{memberId} {
       allow read: if isWhitelisted();
-      allow create: if isManager() && isValidMember(incoming());
-      allow update: if isManager() && isValidMember(incoming()) &&
+      allow create: if isManager() && isValidMember(incoming()) && incoming().createdAt == request.time;
+      allow update: if isManager() && isValidMember(incoming()) && 
+                    incoming().createdAt == existing().createdAt &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'phone']);
       allow delete: if isManager();
     }
 
     match /groups/{groupId} {
       allow read: if isWhitelisted();
-      allow create: if isManager() && isValidGroup(incoming());
+      allow create: if isManager() && isValidGroup(incoming()) && incoming().createdAt == request.time;
       allow update: if isManager() && isValidGroup(incoming()) &&
+                    incoming().createdAt == existing().createdAt &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['name', 'status', 'totalChitValue', 'totalMonths', 'totalSlots', 'startDate']);
       allow delete: if isManager();
     }
@@ -110,9 +107,11 @@ service cloud.firestore {
     match /groupMembers/{mappingId} {
       allow read: if isWhitelisted();
       allow create: if isManager() && isValidGroupMember(incoming()) &&
+                    incoming().joinedAt == request.time &&
                     exists(/databases/$(database)/documents/members/$(incoming().memberId)) &&
                     exists(/databases/$(database)/documents/groups/$(incoming().groupId));
       allow update: if isManager() && isValidGroupMember(incoming()) &&
+                    incoming().joinedAt == existing().joinedAt &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['slots']);
       allow delete: if isManager();
     }
@@ -120,6 +119,7 @@ service cloud.firestore {
     match /auctions/{auctionId} {
       allow read: if isWhitelisted();
       allow create: if isManager() && isValidAuction(incoming()) &&
+                    incoming().createdAt == request.time &&
                     exists(/databases/$(database)/documents/groups/$(incoming().groupId)) &&
                     exists(/databases/$(database)/documents/members/$(incoming().winnerMemberId));
       allow update: if false; // Auctions are immutable history
