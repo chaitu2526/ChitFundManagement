@@ -60,10 +60,10 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
     const auctions = allAuctions[group.id] || [];
     const targetAuction = auctions.find(a => a.monthNumber === monthNum);
     
-    const dividend = targetAuction?.dividendPerSlot || 0;
-    const baseInstallment = group.totalChitValue / group.totalSlots;
+    const dividend = Math.round(targetAuction?.dividendPerSlot || 0);
+    const baseInstallment = Math.round(group.totalChitValue / group.totalSlots);
     const duePerSlot = baseInstallment - dividend;
-    return duePerSlot * mship.slots;
+    return Math.round(duePerSlot * mship.slots);
   };
 
   return (
@@ -160,8 +160,8 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
               const auctions = allAuctions[group.id] || [];
               const targetAuction = auctions.find(a => a.monthNumber === monthNum);
               
-              const baseInstallment = group.totalChitValue / group.totalSlots;
-              const currentDividend = targetAuction?.dividendPerSlot || 0;
+              const baseInstallment = Math.round(group.totalChitValue / group.totalSlots);
+              const currentDividend = Math.round(targetAuction?.dividendPerSlot || 0);
               const totalDue = calculateDueForGroup(group, mship, selectedDate);
 
               return (
@@ -178,12 +178,12 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
                   <div className="space-y-4">
                     <div className="flex justify-between items-center py-2 border-b border-white/5">
                       <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Base Installment</span>
-                      <span className="text-sm font-semibold text-zinc-300">₹{(baseInstallment * mship.slots).toLocaleString()}</span>
+                      <span className="text-sm font-semibold text-zinc-300">₹{Math.round(baseInstallment * mship.slots).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-white/5">
                       <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Period Dividend</span>
                       <span className="text-sm font-bold text-emerald-500">
-                        {targetAuction ? `- ₹${(currentDividend * mship.slots).toLocaleString()}` : 'Awaiting Auction'}
+                        {targetAuction ? `- ₹${Math.round(currentDividend * mship.slots).toLocaleString()}` : 'Awaiting Auction'}
                       </span>
                     </div>
                     <div className="flex justify-between items-center pt-4">

@@ -31,7 +31,7 @@ export const Overview: React.FC<OverviewProps> = ({ groups, members }) => {
 
   if (selectedGroup) {
     // Group Detail View
-    const baseInstallment = selectedGroup.totalChitValue / selectedGroup.totalSlots;
+    const baseInstallment = Math.round(selectedGroup.totalChitValue / selectedGroup.totalSlots);
     const sortedAuctions = groupAuctions.slice().sort((a, b) => a.monthNumber - b.monthNumber);
     const monthsArray = Array.from({ length: selectedGroup.totalMonths }, (_, i) => i + 1);
 
@@ -109,9 +109,9 @@ export const Overview: React.FC<OverviewProps> = ({ groups, members }) => {
                         const isWinner = auction?.winnerMemberId === gm.memberId;
                         
                         // Calculate due
-                        const dividend = auction?.dividendPerSlot || 0;
+                        const dividend = Math.round(auction?.dividendPerSlot || 0);
                         const duePerSlot = auction ? (baseInstallment - dividend) : baseInstallment;
-                        const totalDue = duePerSlot * gm.slots;
+                        const totalDue = Math.round(duePerSlot * gm.slots);
 
                         return (
                           <td key={mo} className={`p-5 text-center transition-all ${isWinner ? 'bg-blue-600/10 relative overflow-hidden' : ''}`}>
@@ -188,7 +188,7 @@ export const Overview: React.FC<OverviewProps> = ({ groups, members }) => {
             <ShieldCheck size={16} className="opacity-10 group-hover:opacity-20 transition-all" />
           </div>
           <p className="col-header mb-1">Total Assets (INR)</p>
-          <p className="data-value text-4xl font-bold text-white tracking-tight">{(totalValue / 100000).toFixed(1)}<span className="text-xl ml-1 text-emerald-500">L</span></p>
+          <p className="data-value text-4xl font-bold text-white tracking-tight">{Math.round(totalValue / 100000)}<span className="text-xl ml-1 text-emerald-500">L</span></p>
         </div>
 
         <div className="glass-panel p-6 bg-blue-600/10 border-blue-500/20 shadow-xl shadow-blue-600/5 group hover:bg-blue-600/20 transition-all">
@@ -240,7 +240,7 @@ export const Overview: React.FC<OverviewProps> = ({ groups, members }) => {
                 </div>
                 <div>
                   <p className="col-header mb-1">Installment / Slot</p>
-                  <p className="data-value text-xl font-bold text-blue-400">₹{(group.totalChitValue / group.totalSlots).toLocaleString()}</p>
+                  <p className="data-value text-xl font-bold text-blue-400">₹{Math.round(group.totalChitValue / group.totalSlots).toLocaleString()}</p>
                 </div>
               </div>
             </div>

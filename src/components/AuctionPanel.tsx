@@ -51,21 +51,21 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
     if (!selectedGroup) return;
     
     const winner = members.find(m => m.id === auction.winnerMemberId);
-    const baseInstallment = selectedGroup.totalChitValue / selectedGroup.totalSlots;
-    const netPayablePerSlot = baseInstallment - auction.dividendPerSlot;
+    const baseInstallment = Math.round(selectedGroup.totalChitValue / selectedGroup.totalSlots);
+    const netPayablePerSlot = baseInstallment - Math.round(auction.dividendPerSlot);
     
     const auctionDisplayDate = auction.auctionDate ? (auction.auctionDate instanceof Date ? auction.auctionDate : (auction.auctionDate as any).toDate()).toLocaleString('en-US', { month: 'long', year: 'numeric' }) : `Month ${auction.monthNumber}`;
 
     let message = "";
     if (targetMember && memberSlots) {
       // Individual Member message
-      const totalDue = netPayablePerSlot * memberSlots;
+      const totalDue = Math.round(netPayablePerSlot * memberSlots);
       message = `*CHIT PAYMENT REMINDER*%0A%0A` +
         `Hello *${targetMember.name}*,%0A%0A` +
         `The auction for *${selectedGroup.name}* (${auctionDisplayDate}) is completed.%0A%0A` +
         `*Group:* ${selectedGroup.name}%0A` +
         `*Period:* ${auctionDisplayDate}%0A` +
-        `*Dividend/Slot:* ₹${auction.dividendPerSlot.toFixed(2)}%0A` +
+        `*Dividend/Slot:* ₹${Math.round(auction.dividendPerSlot)}%0A` +
         `*Your Slots:* ${memberSlots}%0A` +
         `*Total Amount Due:* ₹${totalDue.toLocaleString()}%0A%0A` +
         `Please clear the due at the earliest. Thank you!`;
@@ -107,7 +107,7 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
     e.preventDefault();
     if (!selectedGroup || !winnerMemberId) return;
 
-    const dividendPerSlot = winningBid / selectedGroup.totalSlots;
+    const dividendPerSlot = Math.round(winningBid / selectedGroup.totalSlots);
 
     const auctionData = {
       groupId: selectedGroupId,
@@ -244,7 +244,7 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
                   <div className="p-4 bg-emerald-500/5 rounded-xl border border-emerald-500/10 mt-4">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Dividend per Slot</span>
-                      <span className="data-value text-emerald-400 font-bold">₹{(winningBid / selectedGroup.totalSlots).toFixed(0)}</span>
+                      <span className="data-value text-emerald-400 font-bold">₹{Math.round(winningBid / selectedGroup.totalSlots)}</span>
                     </div>
                   </div>
                 </div>
@@ -264,7 +264,7 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
                 </div>
                 <div>
                   <p className="col-header text-[9px]">Base Pay</p>
-                  <p className="text-lg font-bold">₹{(selectedGroup.totalChitValue / selectedGroup.totalSlots).toLocaleString()}</p>
+                  <p className="text-lg font-bold">₹{Math.round(selectedGroup.totalChitValue / selectedGroup.totalSlots).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="col-header text-[9px]">Cycles</p>
@@ -302,9 +302,9 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
                           <div className="data-value text-zinc-400 text-xs font-bold uppercase">
                             {auction.auctionDate ? (auction.auctionDate instanceof Date ? auction.auctionDate : (auction.auctionDate as any).toDate()).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : `#${auction.monthNumber}`}
                           </div>
-                          <div className="data-value font-bold text-white">₹{auction.winningBid.toLocaleString()}</div>
+                          <div className="data-value font-bold text-white">₹{Math.round(auction.winningBid).toLocaleString()}</div>
                           <div className="font-semibold truncate text-zinc-300">{winner?.name || 'Unknown'}</div>
-                          <div className="data-value text-emerald-500 font-bold">+{auction.dividendPerSlot.toFixed(0)}</div>
+                          <div className="data-value text-emerald-500 font-bold">+{Math.round(auction.dividendPerSlot).toLocaleString()}</div>
                           <div className="flex justify-end gap-2">
                             <button 
                               onClick={() => handleEditAuction(auction)}
@@ -344,8 +344,8 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
                             <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                               {groupMemberships.map(gm => {
                                 const member = members.find(m => m.id === gm.memberId);
-                                const baseInstallment = selectedGroup.totalChitValue / selectedGroup.totalSlots;
-                                const totalDue = (baseInstallment - auction.dividendPerSlot) * gm.slots;
+                                const baseInstallment = Math.round(selectedGroup.totalChitValue / selectedGroup.totalSlots);
+                                const totalDue = Math.round((baseInstallment - Math.round(auction.dividendPerSlot)) * gm.slots);
                                 
                                 return (
                                   <div key={gm.id} className="flex justify-between items-center text-[12px] bg-white/[0.03] p-4 rounded-xl border border-white/5 hover:border-white/10 transition-colors group">
