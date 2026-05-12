@@ -169,7 +169,7 @@ export default function App() {
   }
 
   const renderView = () => {
-    if (isDisplayOnly) return <Overview groups={groups} members={members} />;
+    if (isDisplayOnly && view !== 'overview' && view !== 'member') return <Overview groups={groups} members={members} />;
 
     switch (view) {
       case 'overview': return <Overview groups={groups} members={members} />;
@@ -201,14 +201,15 @@ export default function App() {
               Overview
             </button>
             
+            <button 
+              onClick={() => setView('member')} 
+              className={`px-4 py-2 rounded-lg transition-all ${view === 'member' ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              Members
+            </button>
+            
             {!isDisplayOnly && (
               <>
-                <button 
-                  onClick={() => setView('member')} 
-                  className={`px-4 py-2 rounded-lg transition-all ${view === 'member' ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-                >
-                  Members
-                </button>
                 <button 
                   onClick={() => setView('auctions')} 
                   className={`px-4 py-2 rounded-lg transition-all ${view === 'auctions' ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
@@ -258,9 +259,9 @@ export default function App() {
             className="fixed inset-0 z-40 bg-[#0a0b10] md:hidden pt-24 px-8 space-y-6 flex flex-col text-xl font-bold uppercase tracking-widest text-[#f0f6fc]"
           >
             <button className="text-left py-4 border-b border-white/5" onClick={() => { setView('overview'); setIsMenuOpen(false); }}>Overview</button>
+            <button className="text-left py-4 border-b border-white/5" onClick={() => { setView('member'); setIsMenuOpen(false); }}>Member View</button>
             {!isDisplayOnly && (
               <>
-                <button className="text-left py-4 border-b border-white/5" onClick={() => { setView('member'); setIsMenuOpen(false); }}>Member View</button>
                 <button className="text-left py-4 border-b border-white/5" onClick={() => { setView('auctions'); setIsMenuOpen(false); }}>Auctions</button>
                 <button className="text-left py-4 border-b border-white/5 text-blue-400" onClick={() => { setView('admin'); setIsMenuOpen(false); }}>System Setup</button>
               </>

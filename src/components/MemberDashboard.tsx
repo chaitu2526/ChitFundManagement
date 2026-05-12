@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { chitService } from '../services/chitService';
 import { Member, Group, GroupMember, Auction } from '../types';
-import { Wallet, Calendar, AlertCircle } from 'lucide-react';
+import { Wallet, Calendar, AlertCircle, Send } from 'lucide-react';
+
+const WHATSAPP_NUMBER = '7207709633';
 
 interface MemberDashboardProps {
   members: Member[];
@@ -66,6 +68,45 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
     return Math.round(duePerSlot * mship.slots);
   };
 
+  const sendWhatsAppNotification = () => {
+    if (!selectedMember) return;
+    
+    const consolidatedDue = memberships.reduce((acc, mship) => {
+      const group = groups.find(g => g.id === mship.groupId);
+      if (!group) return acc;
+      return acc + calculateDueForGroup(group, mship, selectedDate);
+    }, 0);
+
+    const monthStr = formatMonthYearStr(selectedDate);
+    
+    let message = `*CHIT PAYMENT SUMMARY*%0A%0A` +
+      `Hello *${selectedMember.name}*,%0A%0A` +
+      `Here is your consolidated due details for *${monthStr}*:%0A%0A`;
+
+    let activeChitsCount = 0;
+    memberships.forEach(mship => {
+      const group = groups.find(g => g.id === mship.groupId);
+      if (group) {
+        const due = calculateDueForGroup(group, mship, selectedDate);
+        if (due > 0) {
+          activeChitsCount++;
+          message += `• *${group.name}:* ₹${due.toLocaleString()}%0A`;
+        }
+      }
+    });
+
+    if (activeChitsCount === 0) {
+      message = `*CHIT STATUS UPDATE*%0A%0AHello *${selectedMember.name}*,%0A%0AYour accounts are clear for *${monthStr}*. No dues found. Thank you!`;
+    } else {
+      message += `%0A*TOTAL CONSOLIDATED DUE: ₹${consolidatedDue.toLocaleString()}*%0A%0A` +
+        `Please clear the dues at your earliest convenience. Thank you!%0A%0A` +
+        `_Generated via ChitManager System_`;
+    }
+
+    const phone = selectedMember.phone?.replace(/\D/g, '') || WHATSAPP_NUMBER;
+    window.open(`https://wa.me/91${phone}?text=${message}`, '_blank');
+  };
+
   return (
     <div className="space-y-8 pb-20">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-blue-600/10 border border-blue-500/20 p-8 rounded-2xl relative overflow-hidden">
@@ -109,15 +150,25 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
                     {formatMonthYearStr(selectedDate)}
                   </div>
                 </div>
-                <div className="flex items-baseline gap-2 justify-center md:justify-start">
-                  <span className="text-xl font-bold text-zinc-500">₹</span>
-                  <p className="text-6xl font-black text-white tracking-tighter">
-                    {memberships.reduce((acc, mship) => {
-                      const group = groups.find(g => g.id === mship.groupId);
-                      if (!group) return acc;
-                      return acc + calculateDueForGroup(group, mship, selectedDate);
-                    }, 0).toLocaleString()}
-                  </p>
+                <div className="flex items-baseline gap-4 justify-center md:justify-start">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xl font-bold text-zinc-500">₹</span>
+                    <p className="text-6xl font-black text-white tracking-tighter">
+                      {memberships.reduce((acc, mship) => {
+                        const group = groups.find(g => g.id === mship.groupId);
+                        if (!group) return acc;
+                        return acc + calculateDueForGroup(group, mship, selectedDate);
+                      }, 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={sendWhatsAppNotification}
+                    className="p-4 bg-[#25D366]/10 text-[#25D366] rounded-2xl border border-[#25D366]/20 hover:bg-[#25D366] hover:text-white transition-all transform hover:scale-105 active:scale-95 shadow-lg shadow-green-500/10 flex items-center gap-2 group/wa"
+                    title="Notify via WhatsApp"
+                  >
+                    <Send size={20} />
+                    <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Send Update</span>
+                  </button>
                 </div>
               </div>
               <div className="text-center md:text-right p-6 bg-white/5 rounded-2xl border border-white/10 min-w-[180px]">
