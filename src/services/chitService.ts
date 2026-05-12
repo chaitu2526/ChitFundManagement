@@ -199,6 +199,15 @@ export const chitService = {
     }, (e) => handleFirestoreError(e, OperationType.LIST, path));
   },
 
+  async updateAuction(id: string, data: Partial<Omit<Auction, 'id' | 'createdAt'>>) {
+    const path = 'auctions';
+    try {
+      await updateDoc(doc(db, path, id), data);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, path);
+    }
+  },
+
   // Authorized Users (Access Control)
   async addAuthorizedUser(email: string, role: UserRole) {
     const path = 'authorizedUsers';

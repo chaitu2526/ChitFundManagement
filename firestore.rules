@@ -122,7 +122,10 @@ service cloud.firestore {
                     incoming().createdAt == request.time &&
                     exists(/databases/$(database)/documents/groups/$(incoming().groupId)) &&
                     exists(/databases/$(database)/documents/members/$(incoming().winnerMemberId));
-      allow update: if false; // Auctions are immutable history
+      allow update: if isManager() && isValidAuction(incoming()) &&
+                    incoming().groupId == existing().groupId &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['monthNumber', 'winningBid', 'winnerMemberId', 'dividendPerSlot', 'auctionDate']);
       allow delete: if isManager();
     }
   }

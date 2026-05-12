@@ -19,6 +19,7 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
   const [winningBid, setWinningBid] = useState(0);
   const [winnerMemberId, setWinnerMemberId] = useState('');
   const [auctionDate, setAuctionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [editingAuctionId, setEditingAuctionId] = useState<string | null>(null);
 
   const selectedGroup = groups.find(g => g.id === selectedGroupId);
 
@@ -104,16 +105,38 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
       auctionDate: new Date(auctionDate) as any
     };
 
-    await chitService.addAuction(auctionData);
+    if (editingAuctionId) {
+      await chitService.updateAuction(editingAuctionId, auctionData);
+      setEditingAuctionId(null);
+    } else {
+      await chitService.addAuction(auctionData);
+      // Auto-prompt to shared (Optional, but user asked for "automatically", so we prompt)
+      if (confirm("Auction recorded. Would you like to send the notification to WhatsApp now?")) {
+        sendWhatsAppNotification({ ...auctionData, id: 'temp' } as any);
+      }
+    }
 
-    setMonthNumber(prev => prev + 1);
+    setMonthNumber(editingAuctionId ? monthNumber : (prev => prev + 1));
     setWinningBid(0);
     setWinnerMemberId('');
-    
-    // Auto-prompt to shared (Optional, but user asked for "automatically", so we prompt)
-    if (confirm("Auction recorded. Would you like to send the notification to WhatsApp now?")) {
-      sendWhatsAppNotification(auctionData as any);
+  };
+
+  const handleEditAuction = (auction: Auction) => {
+    setEditingAuctionId(auction.id);
+    setMonthNumber(auction.monthNumber);
+    setWinningBid(auction.winningBid);
+    setWinnerMemberId(auction.winnerMemberId);
+    if (auction.auctionDate) {
+      const date = auction.auctionDate instanceof Date ? auction.auctionDate : (auction.auctionDate as any).toDate();
+      setAuctionDate(date.toISOString().split('T')[0]);
     }
+  };
+
+  const cancelEdit = () => {
+    setEditingAuctionId(null);
+    setMonthNumber(auctions.length + 1);
+    setWinningBid(0);
+    setWinnerMemberId('');
   };
 
   return (
@@ -147,9 +170,21 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-6">
             <div className="glass-panel p-8 shadow-xl shadow-blue-900/5">
-              <div className="flex items-center gap-3 mb-8">
-                <TrendingDown size={18} className="text-blue-500" />
-                <h3 className="text-sm font-bold uppercase tracking-widest text-white">Record Settlement</h3>
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <TrendingDown size={18} className="text-blue-500" />
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-white">
+                    {editingAuctionId ? 'Modify Settlement' : 'Record Settlement'}
+                  </h3>
+                </div>
+                {editingAuctionId && (
+                  <button 
+                    onClick={cancelEdit}
+                    className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
               </div>
               
               <form onSubmit={handleSubmitAuction} className="space-y-6">
@@ -202,7 +237,7 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
                 </div>
 
                 <button type="submit" className="btn-technical w-full py-4 text-sm shadow-lg shadow-blue-500/10">
-                  Seal Auction Results
+                  {editingAuctionId ? 'Update Auction Results' : 'Seal Auction Results'}
                 </button>
               </form>
             </div>
@@ -235,12 +270,12 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
               <TrendingDown size={14} /> Settlement Log
             </h3>
             <div className="space-y-3">
-              <div className="grid grid-cols-[0.5fr,1fr,1.5fr,1fr,0.5fr] px-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-600">
+              <div className="grid grid-cols-[0.5fr,1fr,1.5fr,1fr,0.8fr] px-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-600">
                 <div>MO</div>
                 <div>Bid</div>
                 <div>Winner</div>
                 <div>Div</div>
-                <div className="text-right">BC</div>
+                <div className="text-right">Actions</div>
               </div>
               <div className="space-y-1">
                 {auctions.sort((a,b) => b.monthNumber - a.monthNumber).map(auction => {
@@ -250,18 +285,27 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
                   return (
                     <div key={auction.id} className={`transition-all ${isBroadcasting ? 'scale-[1.02] z-10' : ''}`}>
                       <div className={`glass-panel border-white/5 overflow-hidden transition-all ${isBroadcasting ? 'border-blue-500/50 bg-blue-600/5 ring-1 ring-blue-500/20' : 'hover:border-white/10'}`}>
-                        <div className="grid grid-cols-[0.5fr,1fr,1.5fr,1fr,0.5fr] data-row border-0 text-sm py-4 items-center">
+                        <div className="grid grid-cols-[0.5fr,1fr,1.5fr,1fr,0.8fr] data-row border-0 text-sm py-4 items-center">
                           <div className="data-value text-zinc-400"># {auction.monthNumber}</div>
                           <div className="data-value font-bold text-white">₹{auction.winningBid.toLocaleString()}</div>
                           <div className="font-semibold truncate text-zinc-300">{winner?.name || 'Unknown'}</div>
                           <div className="data-value text-emerald-500 font-bold">+{auction.dividendPerSlot.toFixed(0)}</div>
-                          <button 
-                            onClick={() => setActiveBroadcastAuctionId(isBroadcasting ? null : auction.id)}
-                            className={`transition-all flex items-center justify-center ml-auto p-2 rounded-lg ${isBroadcasting ? 'bg-blue-600 text-white shadow-lg' : 'text-blue-500 hover:bg-blue-600/10'}`}
-                            title="Broadcast Notifications"
-                          >
-                            <Send size={14} />
-                          </button>
+                          <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => handleEditAuction(auction)}
+                              className="p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-all"
+                              title="Edit Auction"
+                            >
+                              <Hammer size={14} />
+                            </button>
+                            <button 
+                              onClick={() => setActiveBroadcastAuctionId(isBroadcasting ? null : auction.id)}
+                              className={`transition-all flex items-center justify-center p-2 rounded-lg ${isBroadcasting ? 'bg-blue-600 text-white shadow-lg' : 'text-blue-500 hover:bg-blue-600/10'}`}
+                              title="Broadcast Notifications"
+                            >
+                              <Send size={14} />
+                            </button>
+                          </div>
                         </div>
 
                         {isBroadcasting && (
