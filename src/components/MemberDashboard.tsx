@@ -10,7 +10,7 @@ interface MemberDashboardProps {
 
 export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, groups }) => {
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
-  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [memberships, setMemberships] = useState<GroupMember[]>([]);
   const [allAuctions, setAllAuctions] = useState<Record<string, Auction[]>>({});
 
@@ -22,12 +22,6 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
         mships.forEach(mship => {
           chitService.getAuctions(mship.groupId, (auctions) => {
             setAllAuctions(prev => ({ ...prev, [mship.groupId]: auctions }));
-            
-            // Set initial selected month to the latest month across all groups
-            if (!selectedMonth) {
-              const maxMonth = auctions.reduce((max, a) => Math.max(max, a.monthNumber), 0);
-              setSelectedMonth(maxMonth || 1);
-            }
           });
         });
       });
@@ -37,16 +31,35 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
 
   const selectedMember = members.find(m => m.id === selectedMemberId);
 
-  // Helper to get available months for the selector
-  const availableMonths = Array.from({ length: 60 }, (_, i) => i + 1); // Up to 60 months span
+  // Helper to calculate month number relative to group start date
+  const getMonthNumberForDate = (startDate: Date | { toDate: () => Date }, targetYYYYMM: string): number => {
+    const start = startDate instanceof Date ? startDate : (startDate as any).toDate();
+    const [year, month] = targetYYYYMM.split('-').map(Number);
+    const startYear = start.getFullYear();
+    const startMonth = start.getMonth() + 1; // 1-indexed
+    return (year - startYear) * 12 + (month - startMonth) + 1;
+  };
 
-  const calculateDueForGroup = (group: Group, mship: GroupMember, targetMonth: number) => {
+  // Helper to format date for display
+  const formatMonthYearStr = (yyyyMM: string) => {
+    const [year, month] = yyyyMM.split('-').map(Number);
+    return new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  };
+
+  // Helper to get available months for the selector (last 12 and next 24)
+  const availableMonthOptions = Array.from({ length: 36 }, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 12 + i);
+    return d.toISOString().slice(0, 7);
+  });
+
+  const calculateDueForGroup = (group: Group, mship: GroupMember, targetYYYYMM: string) => {
+    const monthNum = getMonthNumberForDate(group.startDate, targetYYYYMM);
+    if (monthNum < 1 || monthNum > group.totalMonths) return 0;
+
     const auctions = allAuctions[group.id] || [];
-    // Find the auction for the target month
-    const targetAuction = auctions.find(a => a.monthNumber === targetMonth);
+    const targetAuction = auctions.find(a => a.monthNumber === monthNum);
     
-    // If it's a future month relative to recorded auctions, we use base installment (or last dividend?)
-    // User wants to "check the dues for the previous months", so we prioritize finding that month's auction.
     const dividend = targetAuction?.dividendPerSlot || 0;
     const baseInstallment = group.totalChitValue / group.totalSlots;
     const duePerSlot = baseInstallment - dividend;
@@ -93,7 +106,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
                 <div className="flex items-center justify-center md:justify-start gap-4 mb-2">
                   <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-blue-400">Consolidated Net Due</h3>
                   <div className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] font-black text-blue-400">
-                    MONTH {selectedMonth}
+                    {formatMonthYearStr(selectedDate)}
                   </div>
                 </div>
                 <div className="flex items-baseline gap-2 justify-center md:justify-start">
@@ -101,8 +114,8 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
                   <p className="text-6xl font-black text-white tracking-tighter">
                     {memberships.reduce((acc, mship) => {
                       const group = groups.find(g => g.id === mship.groupId);
-                      if (!group || !selectedMonth) return acc;
-                      return acc + calculateDueForGroup(group, mship, selectedMonth);
+                      if (!group) return acc;
+                      return acc + calculateDueForGroup(group, mship, selectedDate);
                     }, 0).toLocaleString()}
                   </p>
                 </div>
@@ -121,11 +134,11 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
               <div className="relative">
                 <select 
                   className="w-full bg-[#161b22] border border-white/10 rounded-xl px-4 py-4 text-sm font-bold tracking-wide text-white outline-none focus:border-blue-500/50 transition-all appearance-none cursor-pointer"
-                  value={selectedMonth || ''}
-                  onChange={e => setSelectedMonth(Number(e.target.value))}
+                  value={selectedDate}
+                  onChange={e => setSelectedDate(e.target.value)}
                 >
-                  {availableMonths.map(m => (
-                    <option key={m} value={m} className="bg-[#161b22]">Period Month {m}</option>
+                  {availableMonthOptions.map(m => (
+                    <option key={m} value={m} className="bg-[#161b22]">{formatMonthYearStr(m)}</option>
                   ))}
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
@@ -139,14 +152,17 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {memberships.map(mship => {
               const group = groups.find(g => g.id === mship.groupId);
-              if (!group || !selectedMonth) return null;
+              if (!group) return null;
               
+              const monthNum = getMonthNumberForDate(group.startDate, selectedDate);
+              if (monthNum < 1 || monthNum > group.totalMonths) return null;
+
               const auctions = allAuctions[group.id] || [];
-              const targetAuction = auctions.find(a => a.monthNumber === selectedMonth);
+              const targetAuction = auctions.find(a => a.monthNumber === monthNum);
               
               const baseInstallment = group.totalChitValue / group.totalSlots;
               const currentDividend = targetAuction?.dividendPerSlot || 0;
-              const totalDue = calculateDueForGroup(group, mship, selectedMonth);
+              const totalDue = calculateDueForGroup(group, mship, selectedDate);
 
               return (
                 <div key={mship.id} className="glass-panel p-8 relative overflow-hidden group hover:border-blue-500/30 hover:bg-blue-600/[0.02] transition-all hover:shadow-2xl hover:shadow-blue-500/5 active:scale-[0.99]">
@@ -173,7 +189,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({ members, group
                     <div className="flex justify-between items-center pt-4">
                       <div className="space-y-1">
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Net Due</span>
-                        <p className="text-[9px] text-zinc-600 font-bold uppercase">Cycle {selectedMonth} of {group.totalMonths}</p>
+                        <p className="text-[9px] text-zinc-600 font-bold uppercase">Cycle {monthNum} of {group.totalMonths}</p>
                       </div>
                       <span className="text-2xl font-black text-white tracking-tighter">₹{totalDue.toLocaleString()}</span>
                     </div>

@@ -18,7 +18,7 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
   const [monthNumber, setMonthNumber] = useState(1);
   const [winningBid, setWinningBid] = useState(0);
   const [winnerMemberId, setWinnerMemberId] = useState('');
-  const [auctionDate, setAuctionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [auctionMonth, setAuctionMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [editingAuctionId, setEditingAuctionId] = useState<string | null>(null);
 
   const selectedGroup = groups.find(g => g.id === selectedGroupId);
@@ -34,6 +34,17 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
     }
   }, [selectedGroupId]);
 
+  useEffect(() => {
+    if (!editingAuctionId) {
+      if (auctions.length > 0) {
+        const maxMonth = auctions.reduce((max, a) => Math.max(max, a.monthNumber), 0);
+        setMonthNumber(maxMonth + 1);
+      } else {
+        setMonthNumber(1);
+      }
+    }
+  }, [auctions, editingAuctionId]);
+
   const [activeBroadcastAuctionId, setActiveBroadcastAuctionId] = useState<string | null>(null);
 
   const sendWhatsAppNotification = (auction: Auction, targetMember?: Member, memberSlots?: number) => {
@@ -43,15 +54,17 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
     const baseInstallment = selectedGroup.totalChitValue / selectedGroup.totalSlots;
     const netPayablePerSlot = baseInstallment - auction.dividendPerSlot;
     
+    const auctionDisplayDate = auction.auctionDate ? (auction.auctionDate instanceof Date ? auction.auctionDate : (auction.auctionDate as any).toDate()).toLocaleString('en-US', { month: 'long', year: 'numeric' }) : `Month ${auction.monthNumber}`;
+
     let message = "";
     if (targetMember && memberSlots) {
       // Individual Member message
       const totalDue = netPayablePerSlot * memberSlots;
       message = `*CHIT PAYMENT REMINDER*%0A%0A` +
         `Hello *${targetMember.name}*,%0A%0A` +
-        `The auction for *${selectedGroup.name}* (Month ${auction.monthNumber}) is completed.%0A%0A` +
+        `The auction for *${selectedGroup.name}* (${auctionDisplayDate}) is completed.%0A%0A` +
         `*Group:* ${selectedGroup.name}%0A` +
-        `*Month:* ${auction.monthNumber}%0A` +
+        `*Period:* ${auctionDisplayDate}%0A` +
         `*Dividend/Slot:* ₹${auction.dividendPerSlot.toFixed(2)}%0A` +
         `*Your Slots:* ${memberSlots}%0A` +
         `*Total Amount Due:* ₹${totalDue.toLocaleString()}%0A%0A` +
@@ -63,7 +76,7 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
       // Admin Summary message
       message = `*CHIT MANAGER - AUCTION COMPLETED*%0A%0A` +
         `*Group:* ${selectedGroup.name}%0A` +
-        `*Month:* ${auction.monthNumber}%0A` +
+        `*Period:* ${auctionDisplayDate}%0A` +
         `*Winner:* ${winner?.name || 'Unknown'}%0A` +
         `*Bid Amount:* ₹${auction.winningBid.toLocaleString()}%0A` +
         `*Dividend per Slot:* ₹${auction.dividendPerSlot.toFixed(2)}%0A` +
@@ -102,7 +115,7 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
       winningBid,
       winnerMemberId,
       dividendPerSlot,
-      auctionDate: new Date(auctionDate) as any
+      auctionDate: new Date(auctionMonth + '-01') as any // Default to 1st of month
     };
 
     if (editingAuctionId) {
@@ -128,7 +141,7 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
     setWinnerMemberId(auction.winnerMemberId);
     if (auction.auctionDate) {
       const date = auction.auctionDate instanceof Date ? auction.auctionDate : (auction.auctionDate as any).toDate();
-      setAuctionDate(date.toISOString().split('T')[0]);
+      setAuctionMonth(date.toISOString().slice(0, 7));
     }
   };
 
@@ -194,8 +207,8 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
                     <input type="number" value={monthNumber} onChange={e => setMonthNumber(Number(e.target.value))} className="input-technical" required />
                   </div>
                   <div className="space-y-2">
-                    <label className="col-header">Session Date</label>
-                    <input type="date" value={auctionDate} onChange={e => setAuctionDate(e.target.value)} className="input-technical" required />
+                    <label className="col-header">Session Month</label>
+                    <input type="month" value={auctionMonth} onChange={e => setAuctionMonth(e.target.value)} className="input-technical" required />
                   </div>
                 </div>
                 
@@ -270,8 +283,8 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
               <TrendingDown size={14} /> Settlement Log
             </h3>
             <div className="space-y-3">
-              <div className="grid grid-cols-[0.5fr,1fr,1.5fr,1fr,0.8fr] px-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-600">
-                <div>MO</div>
+              <div className="grid grid-cols-[0.7fr,1fr,1.3fr,1fr,0.8fr] px-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-600">
+                <div>Period</div>
                 <div>Bid</div>
                 <div>Winner</div>
                 <div>Div</div>
@@ -285,8 +298,10 @@ export const AuctionPanel: React.FC<AuctionPanelProps> = ({ groups, members }) =
                   return (
                     <div key={auction.id} className={`transition-all ${isBroadcasting ? 'scale-[1.02] z-10' : ''}`}>
                       <div className={`glass-panel border-white/5 overflow-hidden transition-all ${isBroadcasting ? 'border-blue-500/50 bg-blue-600/5 ring-1 ring-blue-500/20' : 'hover:border-white/10'}`}>
-                        <div className="grid grid-cols-[0.5fr,1fr,1.5fr,1fr,0.8fr] data-row border-0 text-sm py-4 items-center">
-                          <div className="data-value text-zinc-400"># {auction.monthNumber}</div>
+                        <div className="grid grid-cols-[0.7fr,1fr,1.3fr,1fr,0.8fr] data-row border-0 text-sm py-4 items-center">
+                          <div className="data-value text-zinc-400 text-xs font-bold uppercase">
+                            {auction.auctionDate ? (auction.auctionDate instanceof Date ? auction.auctionDate : (auction.auctionDate as any).toDate()).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : `#${auction.monthNumber}`}
+                          </div>
                           <div className="data-value font-bold text-white">₹{auction.winningBid.toLocaleString()}</div>
                           <div className="font-semibold truncate text-zinc-300">{winner?.name || 'Unknown'}</div>
                           <div className="data-value text-emerald-500 font-bold">+{auction.dividendPerSlot.toFixed(0)}</div>
